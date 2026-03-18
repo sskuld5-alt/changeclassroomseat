@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>청여중 자리 배치 프로그램</title>
+    <style>
+        /* 아기자기하고 밝은 디자인 테마 */
+        :root {
+            --primary-color: #ffb6c1;
+            --bg-color: #fff0f5;
+            --panel-bg: #ffffff;
+            --text-color: #4a4a4a;
+            --btn-hover: #ff9fb0;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* 화면 위쪽 정렬 */
+            min-height: 100vh;
+        }
+
+        /* 화면 공통 */
+        .screen {
+            background-color: var(--panel-bg);
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+            padding: 40px;
+            width: 100%;
+            max-width: 1200px;
+            display: none;
+            box-sizing: border-box;
+            margin-bottom: 30px;
+        }
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #ff8b9e;
+            margin-bottom: 30px;
+        }
+
+        /* 화면 1: 설정 화면 */
+        .setup-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        .input-group input {
+            width: 80px;
+            font-size: 1.2rem;
+            padding: 10px;
+            border: 2px solid var(--primary-color);
+            border-radius: 10px;
+            text-align: center;
+            outline: none;
+        }
+
+        .layout-options {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .layout-card {
+            width: 250px;
+            height: 180px;
+            border-radius: 15px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            border: 3px solid transparent;
+            transition: all 0.3s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-size: cover;
+            background-position: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .layout-card::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(255,182,193,0.6), rgba(176,224,230,0.6));
+            backdrop-filter: blur(4px);
+            z-index: 1;
+        }
+        .layout-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+            border-color: var(--primary-color);
+        }
+        .layout-card span {
+            position: relative;
+            z-index: 2;
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #333;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 10px 20px;
+            border-radius: 30px;
+        }
+
+        /* 화면 2: 배치 화면 */
+        .main-container {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+        }
+
+        .left-panel {
+            flex: 1;
+            background-color: #fff9fa;
+            border: 2px solid var(--primary-color);
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            max-height: 80vh;
+        }
+        .input-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            padding-right: 10px;
+        }
+        .student-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .student-row select, .student-row input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            font-size: 1rem;
+        }
+        .student-row input { text-align: center; }
+        .student-row select:focus, .student-row input:focus { border-color: var(--primary-color); }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .btn {
+            padding: 15px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            color: white;
+        }
+        .btn-primary { background-color: #ff8b9e; grid-column: 1 / -1; }
+        .btn-primary:hover { background-color: #ff6b82; }
+        .btn-secondary { background-color: #a0c4ff; color: #333;}
+        .btn-secondary:hover { background-color: #8bb5ff; }
+        .btn-print { background-color: #ffd6a5; color: #333; }
+        .btn-print:hover { background-color: #ffc27a; }
+        .btn-home { background-color: #caffbf; color: #333; grid-column: 1 / -1; }
+        .btn-home:hover { background-color: #a0f090; }
+
+        .right-panel {
+            flex: 2;
+            background-color: #ffffff;
+            border: 2px dashed var(--primary-color);
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .print-title {
+            display: none;
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 30px;
+            color: black;
+        }
+
+        .board {
+            width: 60%;
+            background-color: #ffffff;
+            color: #333;
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .seat-grid {
+            display: grid;
+            gap: 15px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .layout-4rows { grid-template-columns: repeat(4, 100px); }
+        .layout-5rows { grid-template-columns: repeat(5, 100px); }
+        .layout-3groups { grid-template-columns: 100px 100px 30px 100px 100px 30px 100px 100px; }
+
+        .seat {
+            width: 100px;
+            height: 70px;
+            background-color: #fff;
+            border: 2px solid #ffb6c1;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            position: relative;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.05);
+        }
+        .seat.empty {
+            background-color: transparent;
+            border: none;
+            box-shadow: none;
+        }
+        .seat-number {
+            position: absolute;
+            top: 5px;
+            left: 8px;
+            font-size: 0.8rem;
+            color: #999;
+            font-weight: normal;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px;}
+        ::-webkit-scrollbar-thumb { background: #ffb6c1; border-radius: 10px;}
+        ::-webkit-scrollbar-thumb:hover { background: #ff9fb0; }
+    </style>
+</head>
+<body>
+
+    <div id="screen-1" class="screen active">
+        <h1>🌸 청여중 자리 배치 프로그램 🌸</h1>
+        <div class="setup-container">
+            <div class="input-group">
+                <label for="class-size">👩‍🎓 학급 인원 : </label>
+                <input type="number" id="class-size" min="1" max="50" value="24"> 명
+            </div>
+            
+            <div class="layout-options">
+                <div class="layout-card" style="background-image: url('data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><rect width=\'100\' height=\'100\' fill=\'%23f0f8ff\'/></svg>');" onclick="goToScreen2('4rows')">
+                    <span>시험대형 4줄</span>
+                </div>
+                <div class="layout-card" style="background-image: url('data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><rect width=\'100\' height=\'100\' fill=\'%23e6e6fa\'/></svg>');" onclick="goToScreen2('5rows')">
+                    <span>시험대형 5줄</span>
+                </div>
+                <div class="layout-card" style="background-image: url('data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><rect width=\'100\' height=\'100\' fill=\'%23fff0f5\'/></svg>');" onclick="goToScreen2('3groups')">
+                    <span>3개의 분단</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-2" class="screen">
+        <div class="main-container">
+            <div class="left-panel">
+                <div class="input-list" id="input-list"></div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="assignSeats()">자리 배치</button>
+                    <button class="btn btn-secondary" onclick="resetInputs()">초기화</button>
+                    <button class="btn btn-print" onclick="printLayout()">출력 🖨️</button>
+                    <button class="btn btn-home" onclick="goHome()">처음으로</button>
+                </div>
+            </div>
+
+            <div class="right-panel">
+                <div class="board">칠 판 (교탁)</div>
+                <div class="seat-grid" id="seat-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSize = 0;
+        let currentLayout = '';
+
+        function goToScreen2(layout) {
+            const sizeInput = document.getElementById('class-size').value;
+            if(sizeInput <= 0) {
+                alert("인원을 올바르게 입력해주세요.");
+                return;
+            }
+            currentSize = parseInt(sizeInput);
+            currentLayout = layout;
+
+            document.getElementById('screen-1').classList.remove('active');
+            document.getElementById('screen-2').classList.add('active');
+
+            generateInputs();
+            renderEmptySeats();
+        }
+
+        function goHome() {
+            document.getElementById('screen-2').classList.remove('active');
+            document.getElementById('screen-1').classList.add('active');
+        }
+
+        function resetInputs() {
+            generateInputs();
+            renderEmptySeats();
+        }
+
+        function generateInputs() {
+            const container = document.getElementById('input-list');
+            container.innerHTML = '';
+            
+            let optionsHTML = `<option value="앞자리">앞자리</option><option value="뒷자리" selected>뒷자리</option>`;
+            if(currentLayout === '3groups') {
+                optionsHTML = `
+                    <option value="앞자리">앞자리</option>
+                    <option value="뒷자리" selected>뒷자리</option>
+                    <option value="앞짝1">앞짝1</option>
+                    <option value="뒷짝1">뒷짝1</option>
+                `;
+            }
+
+            for(let i=0; i<currentSize; i++) {
+                const row = document.createElement('div');
+                row.className = 'student-row';
+                row.innerHTML = `
+                    <select class="pos-select">${optionsHTML}</select>
+                    <input type="text" class="name-input" placeholder="이름 입력">
+                `;
+                container.appendChild(row);
+            }
+        }
+
+        // 반전 배치를 위해 더미(빈 공간) 좌석까지 꽉 채워서 사각형을 유지하는 함수
+        function renderEmptySeats() {
+            const grid = document.getElementById('seat-grid');
+            grid.innerHTML = '';
+            grid.className = 'seat-grid layout-' + currentLayout;
+
+            let seatCount = 0;
+            let totalRows = 0;
+
+            if(currentLayout === '3groups') {
+                totalRows = Math.ceil(currentSize / 6); // 1줄에 6명씩 계산
+                let row = 0;
+                while(row < totalRows) {
+                    for(let col = 0; col < 8; col++) {
+                        if(col === 2 || col === 5) { 
+                            const spacer = document.createElement('div');
+                            spacer.className = 'seat empty';
+                            grid.appendChild(spacer);
+                        } else { 
+                            seatCount++;
+                            const seat = document.createElement('div');
+                            if (seatCount <= currentSize) {
+                                seat.className = 'seat';
+                                seat.id = `seat-${seatCount}`;
+                                seat.innerHTML = `<span class="seat-number">${seatCount}</span><span class="seat-name"></span>`;
+                            } else {
+                                // 빈자리를 채우는 투명한 더미 요소 (뒤집기를 위해 필요함)
+                                seat.className = 'seat empty dummy';
+                            }
+                            grid.appendChild(seat);
+                        }
+                    }
+                    row++;
+                }
+            } else {
+                let cols = currentLayout === '4rows' ? 4 : 5;
+                totalRows = Math.ceil(currentSize / cols);
+                let totalCells = totalRows * cols;
+                for(let i=1; i<=totalCells; i++) {
+                    const seat = document.createElement('div');
+                    if (i <= currentSize) {
+                        seat.className = 'seat';
+                        seat.id = `seat-${i}`;
+                        seat.innerHTML = `<span class="seat-number">${i}</span><span class="seat-name"></span>`;
+                    } else {
+                        // 빈자리를 채우는 투명한 더미 요소
+                        seat.className = 'seat empty dummy';
+                    }
+                    grid.appendChild(seat);
+                }
+            }
+        }
+
+        function assignSeats() {
+            const rows = document.querySelectorAll('.student-row');
+            let students = [];
+            let hasEmptyName = false;
+
+            rows.forEach((row) => {
+                const pos = row.querySelector('.pos-select').value;
+                const name = row.querySelector('.name-input').value.trim();
+                if(name === "") hasEmptyName = true;
+                students.push({ pos: pos, name: name });
+            });
+
+            if(hasEmptyName) {
+                alert("빈칸을 모두 입력하세요.");
+                return;
+            }
+
+            if(currentLayout === '3groups') {
+                const frontPairCount = students.filter(s => s.pos === '앞짝1').length;
+                const backPairCount = students.filter(s => s.pos === '뒷짝1').length;
+
+                if(frontPairCount !== 0 && frontPairCount !== 2) {
+                    alert("앞짝은 2명이거나 0명이어야 합니다.");
+                    return;
+                }
+                if(backPairCount !== 0 && backPairCount !== 2) {
+                    alert("뒤짝은 2명이거나 0명이어야 합니다.");
+                    return;
+                }
+            }
+
+            const frontGroup = students.filter(s => s.pos === '앞자리' || s.pos === '앞짝1');
+            const backGroup = students.filter(s => s.pos === '뒷자리' || s.pos === '뒷짝1');
+            
+            let frontIndices = Array.from({length: frontGroup.length}, (_, i) => i);
+            let backIndices = Array.from({length: backGroup.length}, (_, i) => i + frontGroup.length);
+
+            let finalArrangement = new Array(currentSize).fill(null);
+
+            if(currentLayout === '3groups') {
+                let frontPairStudents = frontGroup.filter(s => s.pos === '앞짝1');
+                if(frontPairStudents.length === 2) {
+                    let validPairs = getValidPairsFor3Groups(frontIndices);
+                    if(validPairs.length > 0) {
+                        let chosenPair = validPairs[Math.floor(Math.random() * validPairs.length)];
+                        finalArrangement[chosenPair[0]] = frontPairStudents[0];
+                        finalArrangement[chosenPair[1]] = frontPairStudents[1];
+                        frontIndices = frontIndices.filter(idx => idx !== chosenPair[0] && idx !== chosenPair[1]);
+                    } else {
+                        finalArrangement[frontIndices[0]] = frontPairStudents[0];
+                        finalArrangement[frontIndices[1]] = frontPairStudents[1];
+                        frontIndices.splice(0, 2);
+                    }
+                }
+
+                let backPairStudents = backGroup.filter(s => s.pos === '뒷짝1');
+                if(backPairStudents.length === 2) {
+                    let validPairs = getValidPairsFor3Groups(backIndices);
+                    if(validPairs.length > 0) {
+                        let chosenPair = validPairs[Math.floor(Math.random() * validPairs.length)];
+                        finalArrangement[chosenPair[0]] = backPairStudents[0];
+                        finalArrangement[chosenPair[1]] = backPairStudents[1];
+                        backIndices = backIndices.filter(idx => idx !== chosenPair[0] && idx !== chosenPair[1]);
+                    } else {
+                        finalArrangement[backIndices[0]] = backPairStudents[0];
+                        finalArrangement[backIndices[1]] = backPairStudents[1];
+                        backIndices.splice(0, 2);
+                    }
+                }
+            }
+
+            let remainingFront = frontGroup.filter(s => s.pos === '앞자리');
+            let remainingBack = backGroup.filter(s => s.pos === '뒷자리');
+
+            remainingFront.sort(() => Math.random() - 0.5);
+            remainingBack.sort(() => Math.random() - 0.5);
+
+            frontIndices.forEach((idx, i) => { finalArrangement[idx] = remainingFront[i]; });
+            backIndices.forEach((idx, i) => { finalArrangement[idx] = remainingBack[i]; });
+
+            for(let i=0; i<currentSize; i++) {
+                const seatElement = document.getElementById(`seat-${i+1}`);
+                if(seatElement && finalArrangement[i]) {
+                    seatElement.querySelector('.seat-name').innerText = finalArrangement[i].name;
+                }
+            }
+        }
+
+        function getValidPairsFor3Groups(availableIndices) {
+            let pairs = [];
+            for(let i = 0; i < availableIndices.length - 1; i++) {
+                let current = availableIndices[i];
+                let next = availableIndices[i+1];
+                if(next === current + 1) {
+                    if(current % 6 === 0 || current % 6 === 2 || current % 6 === 4) {
+                        pairs.push([current, next]);
+                    }
+                }
+            }
+            return pairs;
+        }
+
+        // 구글 사이트 차단을 피해 '새 팝업창'에서 양방향 인쇄를 수행하는 함수
+        function printLayout() {
+            // 구글 사이트 도구 밖으로 새 팝업창 띄우기
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                alert("❗ 브라우저 우측 상단의 '팝업 차단'을 해제(항상 허용)해 주셔야 인쇄 창이 열립니다!");
+                return;
+            }
+            
+            // 현재 스타일과 1페이지(학생용) 그리드 복사
+            const styles = document.querySelector('style').innerHTML;
+            const gridHTML = document.querySelector('.seat-grid').outerHTML;
+            
+            // 2페이지(교사용)를 위해 그리드 요소를 완전히 뒤집기
+            const gridClone = document.querySelector('.seat-grid').cloneNode(true);
+            const seats = Array.from(gridClone.children);
+            seats.reverse();
+            gridClone.innerHTML = '';
+            seats.forEach(seat => {
+                seat.removeAttribute('id'); // 중복 ID 방지
+                gridClone.appendChild(seat);
+            });
+            const teacherGridHTML = gridClone.outerHTML;
+
+            // 팝업창 안에 인쇄 전용 HTML 그려넣기
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="ko">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>자리 배치도 출력</title>
+                    <style>
+                        ${styles}
+                        body { 
+                            background: white !important; 
+                            padding: 20px !important; 
+                            display: block !important; 
+                            -webkit-print-color-adjust: exact; 
+                            print-color-adjust: exact; 
+                        }
+                        /* 인쇄용에서는 배경과 테두리를 또렷하게 처리 */
+                        .seat { border-color: #aaa !important; background-color: #fff !important; }
+                        .board { border: 1px solid #ccc !important; background-color: #eee !important; color: #333 !important; }
+                        
+                        /* 인쇄 시 A4용지에 맞게 크기 확대 (여백 문제 해결) */
+                        .layout-4rows { grid-template-columns: repeat(4, 100px) !important; }
+                        .layout-5rows { grid-template-columns: repeat(5, 100px) !important; }
+                        .layout-3groups { grid-template-columns: 100px 100px 30px 100px 100px 30px 100px 100px !important; }
+                        .seat { width: 100px !important; height: 70px !important; font-size: 1.1rem !important; }
+                        .seat-grid { gap: 15px !important; }
+
+                        .page-normal { display: flex; flex-direction: column; align-items: center; width: 100%; }
+                        /* 두 번째 장으로 넘기는 CSS */
+                        .page-break { display: flex; flex-direction: column; align-items: center; width: 100%; page-break-before: always; padding-top: 30px; }
+                        .print-title-text { font-size: 2rem; font-weight: bold; margin-bottom: 30px; color: black; }
+                    </style>
+                </head>
+                <body>
+                    <div class="page-normal">
+                        <div class="print-title-text">자리 배치도</div>
+                        <div class="board">칠 판 (교탁)</div>
+                        ${gridHTML}
+                    </div>
+
+                    <div class="page-break">
+                        ${teacherGridHTML}
+                        <div class="board" style="margin-top: 30px; margin-bottom: 30px;">칠 판 (교탁)</div>
+                        <div class="print-title-text">자리 배치도</div>
+                    </div>
+
+                    <script>
+                        // 페이지가 다 그려지면 자동으로 인쇄창 호출
+                        window.onload = function() {
+                            setTimeout(function() {
+                                window.print();
+                            }, 500);
+                        };
+                    \x3C/script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+
+    </script>
+</body>
+</html>
