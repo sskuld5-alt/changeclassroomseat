@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>청여중 자리 배치 프로그램</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         /* 아기자기하고 밝은 디자인 테마 */
         :root {
@@ -22,7 +23,7 @@
             padding: 20px;
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* 화면 위쪽 정렬 */
+            align-items: flex-start;
             min-height: 100vh;
         }
 
@@ -144,6 +145,30 @@
             flex-direction: column;
             max-height: 80vh;
         }
+        
+        /* 엑셀 업로드 버튼 디자인 */
+        .file-upload-container {
+            margin-bottom: 15px;
+        }
+        .btn-upload {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #ffffff;
+            color: #ff6b82;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            box-sizing: border-box;
+            border: 2px solid #ffb6c1;
+            transition: all 0.2s;
+        }
+        .btn-upload:hover {
+            background-color: #ffb6c1;
+            color: white;
+        }
+
         .input-list {
             flex-grow: 1;
             overflow-y: auto;
@@ -296,6 +321,11 @@
     <div id="screen-2" class="screen">
         <div class="main-container">
             <div class="left-panel">
+                <div class="file-upload-container">
+                    <label for="excel-upload" class="btn-upload">엑셀 파일 명렬표 업로드 📊</label>
+                    <input type="file" id="excel-upload" accept=".xlsx, .xls" style="display: none;" onchange="handleExcelUpload(event)">
+                </div>
+
                 <div class="input-list" id="input-list"></div>
                 <div class="button-group">
                     <button class="btn btn-primary" onclick="assignSeats()">자리 배치</button>
@@ -346,15 +376,12 @@
             const container = document.getElementById('input-list');
             container.innerHTML = '';
             
-            let optionsHTML = `<option value="앞자리">앞자리</option><option value="뒷자리" selected>뒷자리</option>`;
-            if(currentLayout === '3groups') {
-                optionsHTML = `
-                    <option value="앞자리">앞자리</option>
-                    <option value="뒷자리" selected>뒷자리</option>
-                    <option value="앞짝1">앞짝1</option>
-                    <option value="뒷짝1">뒷짝1</option>
-                `;
-            }
+            let optionsHTML = `
+                <option value="앞자리">앞자리</option>
+                <option value="뒷자리" selected>뒷자리</option>
+                <option value="앞짝1">앞짝1</option>
+                <option value="뒷짝1">뒷짝1</option>
+            `;
 
             for(let i=0; i<currentSize; i++) {
                 const row = document.createElement('div');
@@ -367,7 +394,53 @@
             }
         }
 
-        // 반전 배치를 위해 더미(빈 공간) 좌석까지 꽉 채워서 사각형을 유지하는 함수
+        // 엑셀 업로드 처리 함수
+        function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                // 엑셀 데이터를 2차원 배열로 변환
+                const json = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                
+                const nameInputs = document.querySelectorAll('.name-input');
+                let inputIndex = 0;
+
+                // 행별로 순회하며 이름 칸에 삽입
+                for (let i = 0; i < json.length; i++) {
+                    const row = json[i];
+                    
+                    // 빈 행이거나 열이 2개 미만인 경우 패스
+                    if (!row || row.length < 2) continue;
+                    
+                    const num = row[0];
+                    const name = row[1];
+
+                    // 첫 번째 줄(헤더)이 "번호", "이름"인 경우 건너뜀
+                    if (num === "번호" || name === "이름") continue;
+                    
+                    if (inputIndex < nameInputs.length) {
+                        // "1.홍길동" 형태로 입력
+                        nameInputs[inputIndex].value = `${num}.${name}`;
+                        inputIndex++;
+                    } else {
+                        // 학급 인원수를 초과하면 중단
+                        break;
+                    }
+                }
+                
+                // 동일한 파일을 다시 업로드할 수 있도록 input 초기화
+                event.target.value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
         function renderEmptySeats() {
             const grid = document.getElementById('seat-grid');
             grid.innerHTML = '';
@@ -377,7 +450,7 @@
             let totalRows = 0;
 
             if(currentLayout === '3groups') {
-                totalRows = Math.ceil(currentSize / 6); // 1줄에 6명씩 계산
+                totalRows = Math.ceil(currentSize / 6);
                 let row = 0;
                 while(row < totalRows) {
                     for(let col = 0; col < 8; col++) {
@@ -393,7 +466,6 @@
                                 seat.id = `seat-${seatCount}`;
                                 seat.innerHTML = `<span class="seat-number">${seatCount}</span><span class="seat-name"></span>`;
                             } else {
-                                // 빈자리를 채우는 투명한 더미 요소 (뒤집기를 위해 필요함)
                                 seat.className = 'seat empty dummy';
                             }
                             grid.appendChild(seat);
@@ -412,12 +484,36 @@
                         seat.id = `seat-${i}`;
                         seat.innerHTML = `<span class="seat-number">${i}</span><span class="seat-name"></span>`;
                     } else {
-                        // 빈자리를 채우는 투명한 더미 요소
                         seat.className = 'seat empty dummy';
                     }
                     grid.appendChild(seat);
                 }
             }
+        }
+
+        function getValidPairs(indices, layout) {
+            let pairs = [];
+            if(layout === '3groups') {
+                for(let i = 0; i < indices.length - 1; i++) {
+                    let current = indices[i];
+                    let next = indices[i+1];
+                    if(next === current + 1) {
+                        if(current % 6 === 0 || current % 6 === 2 || current % 6 === 4) {
+                            pairs.push([current, next]);
+                        }
+                    }
+                }
+            } else {
+                let cols = layout === '4rows' ? 4 : 5;
+                for(let i = 0; i < indices.length - 1; i++) {
+                    let current = indices[i];
+                    let next = indices[i+1];
+                    if(next === current + 1 && (current % cols !== cols - 1)) {
+                        pairs.push([current, next]);
+                    }
+                }
+            }
+            return pairs;
         }
 
         function assignSeats() {
@@ -437,18 +533,16 @@
                 return;
             }
 
-            if(currentLayout === '3groups') {
-                const frontPairCount = students.filter(s => s.pos === '앞짝1').length;
-                const backPairCount = students.filter(s => s.pos === '뒷짝1').length;
+            const frontPairCount = students.filter(s => s.pos === '앞짝1').length;
+            const backPairCount = students.filter(s => s.pos === '뒷짝1').length;
 
-                if(frontPairCount !== 0 && frontPairCount !== 2) {
-                    alert("앞짝은 2명이거나 0명이어야 합니다.");
-                    return;
-                }
-                if(backPairCount !== 0 && backPairCount !== 2) {
-                    alert("뒤짝은 2명이거나 0명이어야 합니다.");
-                    return;
-                }
+            if(frontPairCount !== 0 && frontPairCount !== 2) {
+                alert("앞짝은 2명이거나 0명이어야 합니다.");
+                return;
+            }
+            if(backPairCount !== 0 && backPairCount !== 2) {
+                alert("뒤짝은 2명이거나 0명이어야 합니다.");
+                return;
             }
 
             const frontGroup = students.filter(s => s.pos === '앞자리' || s.pos === '앞짝1');
@@ -459,35 +553,33 @@
 
             let finalArrangement = new Array(currentSize).fill(null);
 
-            if(currentLayout === '3groups') {
-                let frontPairStudents = frontGroup.filter(s => s.pos === '앞짝1');
-                if(frontPairStudents.length === 2) {
-                    let validPairs = getValidPairsFor3Groups(frontIndices);
-                    if(validPairs.length > 0) {
-                        let chosenPair = validPairs[Math.floor(Math.random() * validPairs.length)];
-                        finalArrangement[chosenPair[0]] = frontPairStudents[0];
-                        finalArrangement[chosenPair[1]] = frontPairStudents[1];
-                        frontIndices = frontIndices.filter(idx => idx !== chosenPair[0] && idx !== chosenPair[1]);
-                    } else {
-                        finalArrangement[frontIndices[0]] = frontPairStudents[0];
-                        finalArrangement[frontIndices[1]] = frontPairStudents[1];
-                        frontIndices.splice(0, 2);
-                    }
+            let frontPairStudents = frontGroup.filter(s => s.pos === '앞짝1');
+            if(frontPairStudents.length === 2) {
+                let validPairs = getValidPairs(frontIndices, currentLayout);
+                if(validPairs.length > 0) {
+                    let chosenPair = validPairs[Math.floor(Math.random() * validPairs.length)];
+                    finalArrangement[chosenPair[0]] = frontPairStudents[0];
+                    finalArrangement[chosenPair[1]] = frontPairStudents[1];
+                    frontIndices = frontIndices.filter(idx => idx !== chosenPair[0] && idx !== chosenPair[1]);
+                } else {
+                    finalArrangement[frontIndices[0]] = frontPairStudents[0];
+                    finalArrangement[frontIndices[1]] = frontPairStudents[1];
+                    frontIndices.splice(0, 2);
                 }
+            }
 
-                let backPairStudents = backGroup.filter(s => s.pos === '뒷짝1');
-                if(backPairStudents.length === 2) {
-                    let validPairs = getValidPairsFor3Groups(backIndices);
-                    if(validPairs.length > 0) {
-                        let chosenPair = validPairs[Math.floor(Math.random() * validPairs.length)];
-                        finalArrangement[chosenPair[0]] = backPairStudents[0];
-                        finalArrangement[chosenPair[1]] = backPairStudents[1];
-                        backIndices = backIndices.filter(idx => idx !== chosenPair[0] && idx !== chosenPair[1]);
-                    } else {
-                        finalArrangement[backIndices[0]] = backPairStudents[0];
-                        finalArrangement[backIndices[1]] = backPairStudents[1];
-                        backIndices.splice(0, 2);
-                    }
+            let backPairStudents = backGroup.filter(s => s.pos === '뒷짝1');
+            if(backPairStudents.length === 2) {
+                let validPairs = getValidPairs(backIndices, currentLayout);
+                if(validPairs.length > 0) {
+                    let chosenPair = validPairs[Math.floor(Math.random() * validPairs.length)];
+                    finalArrangement[chosenPair[0]] = backPairStudents[0];
+                    finalArrangement[chosenPair[1]] = backPairStudents[1];
+                    backIndices = backIndices.filter(idx => idx !== chosenPair[0] && idx !== chosenPair[1]);
+                } else {
+                    finalArrangement[backIndices[0]] = backPairStudents[0];
+                    finalArrangement[backIndices[1]] = backPairStudents[1];
+                    backIndices.splice(0, 2);
                 }
             }
 
@@ -508,45 +600,26 @@
             }
         }
 
-        function getValidPairsFor3Groups(availableIndices) {
-            let pairs = [];
-            for(let i = 0; i < availableIndices.length - 1; i++) {
-                let current = availableIndices[i];
-                let next = availableIndices[i+1];
-                if(next === current + 1) {
-                    if(current % 6 === 0 || current % 6 === 2 || current % 6 === 4) {
-                        pairs.push([current, next]);
-                    }
-                }
-            }
-            return pairs;
-        }
-
-        // 구글 사이트 차단을 피해 '새 팝업창'에서 양방향 인쇄를 수행하는 함수
         function printLayout() {
-            // 구글 사이트 도구 밖으로 새 팝업창 띄우기
             const printWindow = window.open('', '_blank');
             if (!printWindow) {
                 alert("❗ 브라우저 우측 상단의 '팝업 차단'을 해제(항상 허용)해 주셔야 인쇄 창이 열립니다!");
                 return;
             }
             
-            // 현재 스타일과 1페이지(학생용) 그리드 복사
             const styles = document.querySelector('style').innerHTML;
             const gridHTML = document.querySelector('.seat-grid').outerHTML;
             
-            // 2페이지(교사용)를 위해 그리드 요소를 완전히 뒤집기
             const gridClone = document.querySelector('.seat-grid').cloneNode(true);
             const seats = Array.from(gridClone.children);
             seats.reverse();
             gridClone.innerHTML = '';
             seats.forEach(seat => {
-                seat.removeAttribute('id'); // 중복 ID 방지
+                seat.removeAttribute('id');
                 gridClone.appendChild(seat);
             });
             const teacherGridHTML = gridClone.outerHTML;
 
-            // 팝업창 안에 인쇄 전용 HTML 그려넣기
             printWindow.document.write(`
                 <!DOCTYPE html>
                 <html lang="ko">
@@ -562,11 +635,9 @@
                             -webkit-print-color-adjust: exact; 
                             print-color-adjust: exact; 
                         }
-                        /* 인쇄용에서는 배경과 테두리를 또렷하게 처리 */
                         .seat { border-color: #aaa !important; background-color: #fff !important; }
                         .board { border: 1px solid #ccc !important; background-color: #eee !important; color: #333 !important; }
                         
-                        /* 인쇄 시 A4용지에 맞게 크기 확대 (여백 문제 해결) */
                         .layout-4rows { grid-template-columns: repeat(4, 100px) !important; }
                         .layout-5rows { grid-template-columns: repeat(5, 100px) !important; }
                         .layout-3groups { grid-template-columns: 100px 100px 30px 100px 100px 30px 100px 100px !important; }
@@ -574,7 +645,6 @@
                         .seat-grid { gap: 15px !important; }
 
                         .page-normal { display: flex; flex-direction: column; align-items: center; width: 100%; }
-                        /* 두 번째 장으로 넘기는 CSS */
                         .page-break { display: flex; flex-direction: column; align-items: center; width: 100%; page-break-before: always; padding-top: 30px; }
                         .print-title-text { font-size: 2rem; font-weight: bold; margin-bottom: 30px; color: black; }
                     </style>
@@ -593,7 +663,6 @@
                     </div>
 
                     <script>
-                        // 페이지가 다 그려지면 자동으로 인쇄창 호출
                         window.onload = function() {
                             setTimeout(function() {
                                 window.print();
