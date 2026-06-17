@@ -6,6 +6,7 @@
     <title>청여중 자리 배치 프로그램</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
         /* 아기자기하고 밝은 디자인 테마 */
         :root {
@@ -176,7 +177,7 @@
             padding-right: 10px;
         }
         
-        /* 3열 구조로 변경 (위치 선택, 이름 입력, 고정좌석 선택) */
+        /* 3열 구조 (위치 선택, 이름 입력, 고정좌석 선택) */
         .student-row {
             display: grid;
             grid-template-columns: 85px 1fr 85px;
@@ -315,7 +316,7 @@
             transform: scale(1.05);
         }
 
-        /* 👑 수동 입력 버튼 - 예쁘고 세련되고 엘레강스한 디자인 👑 */
+        /* 수동 입력 버튼 */
         .btn-manual {
             margin-top: 30px;
             padding: 12px 35px;
@@ -346,6 +347,46 @@
             background: linear-gradient(135deg, #ff8b9e 0%, #ff6b82 100%);
             border-color: transparent;
             box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 과거 자리배치 OCR 관련 영역 추가 스타일 */
+        .ocr-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 25px;
+        }
+        .btn-ocr {
+            padding: 12px 25px;
+            font-size: 1.05rem;
+            font-weight: bold;
+            color: #333;
+            background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
+            border: 2px solid #80deea;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(128, 222, 234, 0.4);
+            transition: all 0.3s;
+            outline: none;
+            margin-bottom: 8px;
+        }
+        .btn-ocr:hover {
+            background: linear-gradient(135deg, #b2ebf2 0%, #80deea 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(128, 222, 234, 0.5);
+        }
+        .btn-ocr:disabled {
+            background: #e0e0e0 !important;
+            border-color: #bdbdbd !important;
+            color: #757575 !important;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        .ocr-info {
+            font-size: 0.9rem;
+            color: #d32f2f;
+            font-weight: bold;
         }
 
         ::-webkit-scrollbar { width: 8px; }
@@ -400,6 +441,12 @@
                 <div class="seat-grid" id="seat-grid"></div>
                 
                 <button id="manual-btn" class="btn-manual" onclick="toggleManualEdit()">수동 입력버튼</button>
+                
+                <div class="ocr-container">
+                    <input type="file" id="ocr-upload" accept="image/png, image/jpeg" style="display: none;" onchange="loadPreviousLayout(event)">
+                    <button id="btn-ocr" class="btn-ocr" onclick="document.getElementById('ocr-upload').click()">과거 자리배치 다시 가져오기</button>
+                    <div class="ocr-info">(과거에 자리배치 다운로드한 PNG파일을 넣어주세요)</div>
+                </div>
             </div>
         </div>
     </div>
@@ -438,7 +485,6 @@
             renderEmptySeats();
         }
 
-        // 수동 모드 강제 해제 함수
         function resetManualMode() {
             isManualMode = false;
             const btn = document.getElementById('manual-btn');
@@ -449,7 +495,6 @@
             disableDragAndDrop();
         }
 
-        // 수동 입력 토글 함수
         function toggleManualEdit() {
             const seatNames = document.querySelectorAll('.seat:not(.dummy) .seat-name');
             const btn = document.getElementById('manual-btn');
@@ -460,16 +505,16 @@
                 btn.innerText = '수동 입력 완료';
                 btn.classList.add('active-mode');
                 seatNames.forEach(sn => sn.setAttribute('contenteditable', 'true'));
-                enableDragAndDrop(); // 드래그 앤 드롭 활성화
+                enableDragAndDrop(); 
             } else {
                 btn.innerText = '수동 입력버튼';
                 btn.classList.remove('active-mode');
                 seatNames.forEach(sn => sn.removeAttribute('contenteditable'));
-                disableDragAndDrop(); // 드래그 앤 드롭 비활성화
+                disableDragAndDrop(); 
             }
         }
 
-        // --- 드래그 앤 드롭 이벤트 핸들러 ---
+        // --- 드래그 앤 드롭 핸들러 ---
         function handleDragStart(e) {
             if(!isManualMode) return;
             draggedSeat = this;
@@ -479,17 +524,13 @@
         }
 
         function handleDragOver(e) {
-            if(e.preventDefault) {
-                e.preventDefault(); // 놓기(Drop)를 허용하기 위해 필수
-            }
+            if(e.preventDefault) e.preventDefault(); 
             e.dataTransfer.dropEffect = 'move';
             return false;
         }
 
         function handleDragEnter(e) {
-            if(this !== draggedSeat) {
-                this.classList.add('over');
-            }
+            if(this !== draggedSeat) this.classList.add('over');
         }
 
         function handleDragLeave(e) {
@@ -497,14 +538,10 @@
         }
 
         function handleDrop(e) {
-            if(e.stopPropagation) {
-                e.stopPropagation();
-            }
+            if(e.stopPropagation) e.stopPropagation();
             if (draggedSeat !== this && this.classList.contains('seat') && !this.classList.contains('dummy')) {
-                // 이름 스와프 (자리 번호는 그대로 유지)
                 let draggedNameSpan = draggedSeat.querySelector('.seat-name');
                 let targetNameSpan = this.querySelector('.seat-name');
-                
                 let temp = draggedNameSpan.innerText;
                 draggedNameSpan.innerText = targetNameSpan.innerText;
                 targetNameSpan.innerText = temp;
@@ -558,7 +595,6 @@
                 <option value="고정">고정</option>
             `;
 
-            // 고정 좌석 선택용 1~N번 옵션 생성
             let seatOptionsHTML = `<option value="">좌석</option>`;
             for(let j=1; j<=currentSize; j++) {
                 seatOptionsHTML += `<option value="${j}">${j}번</option>`;
@@ -575,7 +611,6 @@
                 container.appendChild(row);
             }
 
-            // '고정' 선택 시에만 좌석 번호 선택창 활성화 이벤트
             const posSelects = container.querySelectorAll('.pos-select');
             posSelects.forEach(select => {
                 select.addEventListener('change', (e) => {
@@ -602,13 +637,11 @@
                 const worksheet = workbook.Sheets[firstSheetName];
                 
                 const json = XLSX.utils.sheet_to_json(worksheet, {header: 1});
-                
                 const nameInputs = document.querySelectorAll('.name-input');
                 let inputIndex = 0;
 
                 for (let i = 0; i < json.length; i++) {
                     const row = json[i];
-                    
                     if (!row || row.length < 2) continue;
                     
                     const num = row[0];
@@ -623,10 +656,99 @@
                         break;
                     }
                 }
-                
                 event.target.value = '';
             };
             reader.readAsArrayBuffer(file);
+        }
+
+        // --- 과거 자리배치 파일 OCR 자동 분석기능 ---
+        async function loadPreviousLayout(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const btn = document.getElementById('btn-ocr');
+            const originalText = btn.innerText;
+            
+            // 버튼 상태를 로딩 중으로 변경
+            btn.innerText = '🔄 이미지 분석 중... (잠시만 대기)';
+            btn.disabled = true;
+
+            try {
+                // Tesseract.js 를 사용하여 한국어 텍스트 추출
+                const result = await Tesseract.recognize(file, 'kor', {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            btn.innerText = `🔄 자리 배치도 복원 중... ${Math.round(m.progress * 100)}%`;
+                        }
+                    }
+                });
+
+                const text = result.data.text;
+                
+                // 숫자.이름 패턴을 정규식으로 유연하게 추출 (예: "1.임시아", "24.한서윤")
+                const regex = /(\d+)\s*[.,]?\s*([가-힣]{2,4})/g;
+                let matches;
+                let parsedStudents = [];
+
+                while ((matches = regex.exec(text)) !== null) {
+                    const num = parseInt(matches[1]);
+                    // 실제 학급 인원 번호 범위 필터링 (오인식 방지)
+                    if (num >= 1 && num <= 50) {
+                        parsedStudents.push({
+                            num: num,
+                            name: `${num}.${matches[2]}`
+                        });
+                    }
+                }
+
+                // 중복 인식 제거 로직
+                let uniqueStudents = [];
+                let seenNames = new Set();
+                for (let s of parsedStudents) {
+                    if (!seenNames.has(s.name)) {
+                        seenNames.add(s.name);
+                        uniqueStudents.push(s);
+                    }
+                }
+
+                if (uniqueStudents.length === 0) {
+                    alert('주인님, 업로드하신 이미지에서 이름 정보를 인식하지 못했습니다. 글자가 선명한 기존 다운로드 파일을 사용해 주세요.');
+                    return;
+                }
+
+                // 1. 영역 1 복원 (오른쪽 칠판 자리 배치 영역)
+                // OCR은 이미지를 위에서 아래, 좌에서 우로 읽기 때문에 추출된 순서대로 자리에 넣습니다.
+                const seats = document.querySelectorAll('.seat:not(.dummy)');
+                for (let i = 0; i < seats.length; i++) {
+                    const nameSpan = seats[i].querySelector('.seat-name');
+                    if (nameSpan) {
+                        nameSpan.innerText = i < uniqueStudents.length ? uniqueStudents[i].name : '';
+                    }
+                }
+
+                // 2. 영역 2 복원 (왼쪽 리스트 번호순 정렬 영역)
+                // 추출된 데이터를 숫자를 기준으로 오름차순 정렬하여 엑셀 입력 칸에 기입합니다.
+                const sortedStudents = [...uniqueStudents].sort((a, b) => a.num - b.num);
+                const nameInputs = document.querySelectorAll('.name-input');
+                
+                for(let i = 0; i < nameInputs.length; i++) {
+                    if (i < sortedStudents.length) {
+                        nameInputs[i].value = sortedStudents[i].name;
+                    } else {
+                        nameInputs[i].value = '';
+                    }
+                }
+
+                alert('✅ 주인님, 과거 자리 배치를 성공적으로 불러왔습니다!');
+            } catch (error) {
+                console.error('OCR 에러발생:', error);
+                alert('주인님, 이미지 분석 처리 중 오류가 발생했습니다.');
+            } finally {
+                // 버튼 원상복구
+                btn.innerText = originalText;
+                btn.disabled = false;
+                event.target.value = '';
+            }
         }
 
         function renderEmptySeats() {
@@ -726,7 +848,6 @@
                 return;
             }
 
-            // 고정 좌석 무결성 검사
             const fixedGroup = students.filter(s => s.pos === '고정');
             let fixedSeatsTaken = new Set();
             for(let s of fixedGroup) {
@@ -755,12 +876,10 @@
 
             let finalArrangement = new Array(currentSize).fill(null);
 
-            // 1. 고정 좌석 먼저 배치
             fixedGroup.forEach(s => {
-                finalArrangement[s.fixedSeat - 1] = s; // 좌석 번호는 1부터 시작하므로 배열 인덱스는 -1
+                finalArrangement[s.fixedSeat - 1] = s; 
             });
 
-            // 2. 남은(사용 가능한) 좌석 인덱스 수집
             let availableIndices = [];
             for(let i=0; i<currentSize; i++) {
                 if(finalArrangement[i] === null) {
@@ -771,11 +890,9 @@
             const frontGroup = students.filter(s => s.pos === '앞자리' || s.pos === '앞짝1');
             const backGroup = students.filter(s => s.pos === '뒷자리' || s.pos === '뒷짝1');
             
-            // 앞자리 그룹은 사용 가능한 좌석 중 앞쪽(낮은 번호)부터, 뒷자리는 그 다음부터 배정
             let frontIndices = availableIndices.slice(0, frontGroup.length);
             let backIndices = availableIndices.slice(frontGroup.length);
 
-            // 3. 앞짝1 배치
             let frontPairStudents = frontGroup.filter(s => s.pos === '앞짝1');
             if(frontPairStudents.length === 2) {
                 let validPairs = getValidPairs(frontIndices, currentLayout);
@@ -791,7 +908,6 @@
                 }
             }
 
-            // 4. 뒷짝1 배치
             let backPairStudents = backGroup.filter(s => s.pos === '뒷짝1');
             if(backPairStudents.length === 2) {
                 let validPairs = getValidPairs(backIndices, currentLayout);
@@ -807,7 +923,6 @@
                 }
             }
 
-            // 5. 남은 학생들 무작위 셔플 후 배치
             let remainingFront = frontGroup.filter(s => s.pos === '앞자리');
             let remainingBack = backGroup.filter(s => s.pos === '뒷자리');
 
@@ -817,38 +932,44 @@
             frontIndices.forEach((idx, i) => { finalArrangement[idx] = remainingFront[i]; });
             backIndices.forEach((idx, i) => { finalArrangement[idx] = remainingBack[i]; });
 
-            // 6. 화면에 렌더링
             for(let i=0; i<currentSize; i++) {
                 const seatElement = document.getElementById(`seat-${i+1}`);
                 if(seatElement) {
                     if(finalArrangement[i]) {
                         seatElement.querySelector('.seat-name').innerText = finalArrangement[i].name;
                     } else {
-                        seatElement.querySelector('.seat-name').innerText = ''; // 혹시 모를 빈자리 방어코드
+                        seatElement.querySelector('.seat-name').innerText = '';
                     }
                     seatElement.querySelector('.seat-name').removeAttribute('contenteditable');
                 }
             }
         }
 
-        // 이미지 다운로드 함수
         function downloadImage() {
             const captureArea = document.getElementById('capture-area');
             const manualBtn = document.getElementById('manual-btn');
+            const ocrContainer = document.querySelector('.ocr-container');
             
+            // 캡처 시 버튼 영역 숨김
             if(manualBtn) manualBtn.style.display = 'none';
+            if(ocrContainer) ocrContainer.style.display = 'none';
 
             html2canvas(captureArea, {
                 scale: 2, 
                 backgroundColor: "#ffffff"
             }).then(canvas => {
+                // 캡처 후 다시 표시
                 if(manualBtn) manualBtn.style.display = 'block';
+                if(ocrContainer) ocrContainer.style.display = 'flex';
 
+                // 시간 포함된 파일명 생성 (년월일시분)
                 const today = new Date();
                 const yyyy = today.getFullYear();
                 const mm = String(today.getMonth() + 1).padStart(2, '0');
                 const dd = String(today.getDate()).padStart(2, '0');
-                const dateStr = `${yyyy}${mm}${dd}`;
+                const hh = String(today.getHours()).padStart(2, '0');
+                const min = String(today.getMinutes()).padStart(2, '0');
+                const dateStr = `${yyyy}${mm}${dd}${hh}${min}`;
 
                 const link = document.createElement('a');
                 link.download = `${dateStr} 자리배치.png`;
@@ -907,7 +1028,7 @@
                         .page-break { display: flex; flex-direction: column; align-items: center; width: 100%; page-break-before: always; padding-top: 30px; }
                         .print-title-text { font-size: 2rem; font-weight: bold; margin-bottom: 30px; color: black; }
                         /* 인쇄 시 버튼 안 보이게 처리 */
-                        .btn-manual { display: none !important; } 
+                        .btn-manual, .ocr-container { display: none !important; } 
                     </style>
                 </head>
                 <body>
@@ -929,7 +1050,7 @@
                                 window.print();
                             }, 500);
                         };
-                    \x3C/script>
+                    <\/script>
                 </body>
                 </html>
             `);
