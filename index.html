@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>청여중 자리 배치 프로그램</title>
+    <title>학급 자리 배치 프로그램</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -398,7 +398,8 @@
 <body>
 
     <div id="screen-1" class="screen active">
-        <h1>🌸 청여중 자리 배치 프로그램 🌸</h1>
+        <h1>🌸 학급 자리 배치 프로그램 🌸</h1>
+        <div style="text-align:center;font-size:0.85rem;color:#999;margin:-18px 0 22px;">[작품] AI 기반 학교업무 통합 관리 웹앱 · 연구보고서: 생성형 AI 기반 학교업무 통합 관리 웹앱 개발을 통한 교원의 교무·수업 업무 경감 연구</div>
         <div class="setup-container">
             <div class="input-group">
                 <label for="class-size">👩‍🎓 학급 인원 : </label>
@@ -712,7 +713,7 @@
                 }
 
                 if (uniqueStudents.length === 0) {
-                    alert('주인님, 업로드하신 이미지에서 이름 정보를 인식하지 못했습니다. 글자가 선명한 기존 다운로드 파일을 사용해 주세요.');
+                    alert('업로드하신 이미지에서 이름 정보를 인식하지 못했습니다. 글자가 선명한 기존 다운로드 파일을 사용해 주세요.');
                     return;
                 }
 
@@ -739,10 +740,10 @@
                     }
                 }
 
-                alert('✅ 주인님, 과거 자리 배치를 성공적으로 불러왔습니다!');
+                alert('✅ 과거 자리 배치를 성공적으로 불러왔습니다!');
             } catch (error) {
                 console.error('OCR 에러발생:', error);
-                alert('주인님, 이미지 분석 처리 중 오류가 발생했습니다.');
+                alert('이미지 분석 처리 중 오류가 발생했습니다.');
             } finally {
                 // 버튼 원상복구
                 btn.innerText = originalText;
